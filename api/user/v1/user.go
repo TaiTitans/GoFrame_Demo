@@ -27,10 +27,9 @@ type CreateRes struct {
 
 type UpdateReq struct {
 	g.Meta `path:"/user/{id}" method:"put" tags:"User" summary:"Update user"`
-	Id     int64  `v:"required" dc:"user id"`
+	Id     int64  `v:"required|min:1" dc:"user id"`
 	Name   string `v:"required|length:3,10" dc:"user name"`
 	Age    uint   `v:"required|between:18,200" dc:"user age"`
-	Status Status `v:"required" dc:"user status"`
 }
 type UpdateRes struct{}
 
@@ -44,7 +43,7 @@ type DeleteRes struct {
 }
 type GetOneReq struct {
 	g.Meta `path:"/user/{id}" method:"get" tags:"User" summary:"Get user by id"`
-	Id     int64 `v:"required" dc:"user id"`
+	Id     int64 `v:"required:min:1" dc:"user id"`
 }
 
 type GetOneRes struct {
@@ -53,8 +52,8 @@ type GetOneRes struct {
 
 type GetListReq struct {
 	g.Meta `path:"/user" method:"get" tags:"User" summary:"Get user list"`
-	Age    *uint   `v:"between:18,200" dc:"user age"`
-	Status *Status `v:"in:0,1" dc:"user status"`
+	Age    *uint `v:"between:18,200" dc:"user age"`
+	Status int64 `v:"in:0,1" dc:"user status"`
 }
 
 type GetListRes struct {

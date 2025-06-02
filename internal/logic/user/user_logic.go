@@ -4,7 +4,15 @@ import (
 	"GoFrame_Demo/internal/dao"
 	"GoFrame_Demo/internal/model/entity"
 	"context"
+	"fmt"
+
+	"github.com/bluele/gcache"
+	"github.com/gogf/gf/v2/errors/gerror"
 )
+
+var UserCache = gcache.New(100).
+	LRU().
+	Build()
 
 type UserLogic struct{}
 
@@ -20,7 +28,14 @@ func (l *UserLogic) Create(ctx context.Context, user *entity.User) (id int64, er
 }
 
 func (l *UserLogic) Update(ctx context.Context, user *entity.User) error {
-	_, err := dao.User.Ctx(ctx).Data(user).WherePri(user.Id).Update()
+	exist, err := dao.User.Ctx(ctx).WherePri(user.Id).One()
+	if err != nil {
+		return err
+	}
+	if exist.IsEmpty() {
+		return gerror.Newf("user with id %d does not exist", user.Id)
+	}
+	_, err = dao.User.Ctx(ctx).WherePri(user.Id).Data(user).Update()
 	if err != nil {
 		return err
 	}
@@ -34,19 +49,50 @@ func (l *UserLogic) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 func (l *UserLogic) GetList(ctx context.Context, filter map[string]interface{}) (list []*entity.User, err error) {
+	ageVal, ageExists := filter["age"]
+	if !ageExists {
+		return nil, fmt.Errorf("missing 'age' in filter")
+	}
+
+	var ageInt int
+	switch v := ageVal.(type) {
+	case float64:
+		ageInt = int(v)
+	case int:
+		ageInt = v
+	default:
+		return nil, fmt.Errorf("invalid age type: %T", v)
+	}
+
+	cacheKey := fmt.Sprintf("user_list_age_%d", ageInt)
+
+	// Kiểm tra cache
+	cachedList, err := UserCache.Get(cacheKey)
+	if err == nil && cachedList != nil {
+		fmt.Println("Cache hit for", cacheKey)
+		return cachedList.([]*entity.User), nil
+	}
+
+	// Query DB với filter đầy đủ
 	query := dao.User.Ctx(ctx)
 	for key, value := range filter {
 		query = query.Where(key, value)
 	}
+
 	err = query.Scan(&list)
 	if err != nil {
 		return nil, err
 	}
+
+	// Set cache theo key đã sinh từ age
+	_ = UserCache.Set(cacheKey, list)
+
 	return list, nil
 }
+
 func (l *UserLogic) GetOne(ctx context.Context, id int64) (user *entity.User, err error) {
 	user = &entity.User{}
-	err = dao.User.Ctx(ctx).WherePri(id).Scan(user)
+	err = dao.User.Ctx(ctx).WherePri(id).Scan(user) // Sử dụng Scan để lấy dữ liệu vào struct nếu scan ko  tìm thấy sẽ trả về rỗng
 	if err != nil {
 		return nil, err
 	}

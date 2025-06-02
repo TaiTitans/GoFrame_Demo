@@ -12,10 +12,6 @@ import (
 )
 
 func (c *ControllerV1) Update(ctx context.Context, req *v1.UpdateReq) (res *v1.UpdateRes, err error) {
-	if req.Id <= 0 {
-		return nil, gerror.NewCode(gcode.CodeInvalidParameter, "id must be greater than 0")
-	}
-
 	user := &entity.User{
 		Id:   uint(req.Id),
 		Name: req.Name,
